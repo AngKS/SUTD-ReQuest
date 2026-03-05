@@ -6,7 +6,6 @@ let device, server, txChar, rxChar;
 let isRecording = false;
 let audioChunks = [];
 let voiceMessages = [];
-let sosCountdownTimer = null;
 // Load saved phone number
 const savedPhone = localStorage.getItem('sos_phone') || '';
 if (savedPhone) document.getElementById('emergency-number').value = savedPhone;
@@ -111,7 +110,6 @@ function onData(event) {
     log("🚨 EMERGENCY — Long press triggered!", 'alert');
     showRequestAlert(true);
     triggerSOSCall();
-    showCallModal();
 
   } else {
     log("ESP32: " + text, 'info');
@@ -123,7 +121,6 @@ function triggerSOSCall() {
   const modal = document.getElementById('sos-modal');
   document.getElementById('sos-time').textContent = new Date().toLocaleTimeString();
   document.getElementById('sos-phone-num').textContent = phone || 'No number set';
-  document.getElementById('countdown-num').textContent = '5';
 
   const callBtn = document.getElementById('call-now-btn');
   if (phone) {
@@ -134,33 +131,22 @@ function triggerSOSCall() {
     callBtn.href = '#';
     callBtn.style.opacity = '0.4';
     callBtn.style.pointerEvents = 'none';
-    log("⚠ No emergency number set — add one in the phone config above", 'alert');
   }
 
   modal.classList.add('visible');
 
-  // Auto-call countdown
-  if (sosCountdownTimer) clearInterval(sosCountdownTimer);
-  let count = 5;
-  sosCountdownTimer = setInterval(() => {
-    count--;
-    document.getElementById('countdown-num').textContent = count;
-    if (count <= 0) {
-      clearInterval(sosCountdownTimer);
-      sosCountdownTimer = null;
-      document.getElementById('sos-countdown').textContent = 'Opening dialer...';
-      if (phone) {
-        log("📞 Auto-dialing " + phone, 'alert');
-        window.location.href = 'tel:' + phone;
-      } else {
-        document.getElementById('sos-countdown').textContent = 'No number configured.';
-      }
-    }
-  }, 1000);
+  // Immediately trigger the call
+  if (phone) {
+    log("📞 Calling " + phone, 'alert');
+    const a = document.createElement('a');
+    a.href = 'tel:' + phone;
+    a.click();
+  } else {
+    log("⚠ No emergency number set — add one in the phone config above", 'alert');
+  }
 }
 
 function dismissSOS() {
-  if (sosCountdownTimer) { clearInterval(sosCountdownTimer); sosCountdownTimer = null; }
   document.getElementById('sos-modal').classList.remove('visible');
   log("SOS modal dismissed", 'info');
 }
@@ -243,22 +229,6 @@ document.getElementById("sendText").addEventListener("keydown", e => { if (e.key
 function setStatus(state) {
   document.getElementById('status-dot').className = state;
   document.getElementById('status-text').textContent = { connected:'Connected', connecting:'Connecting...', disconnected:'Disconnected' }[state];
-}
-
-function showCallModal() {
-  document.getElementById('call-time').textContent = new Date().toLocaleTimeString();
-  document.getElementById('call-modal').classList.add('visible');
-  log("📞 Incoming emergency call", 'alert');
-}
-
-function acceptCall() {
-  document.getElementById('call-modal').classList.remove('visible');
-  log("✓ Call accepted", 'ok');
-}
-
-function endCall() {
-  document.getElementById('call-modal').classList.remove('visible');
-  log("✕ Call ended", 'info');
 }
 
 function log(msg, type='info') {

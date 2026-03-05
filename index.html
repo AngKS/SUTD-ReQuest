@@ -85,7 +85,6 @@
     <p>User has triggered an emergency alert.</p>
     <span id="sos-time"></span>
     <div id="sos-phone-display">Calling: <span id="sos-phone-num">—</span></div>
-    <p id="sos-countdown">Auto-calling in <span id="countdown-num">5</span>s...</p>
     <div class="sos-actions">
       <a id="call-now-btn" class="btn call" href="#">📞 Call Again</a>
       <button class="btn danger" onclick="dismissSOS()">✕ Dismiss</button>
@@ -93,19 +92,6 @@
   </div>
 </div>
 
-<!-- Incoming Call Modal -->
-<div id="call-modal">
-  <div id="call-box">
-    <div class="call-icon">📞</div>
-    <h2>Incoming Emergency Call</h2>
-    <p>The user has triggered emergency mode and is requesting live assistance.</p>
-    <span id="call-time"></span>
-    <div class="call-actions">
-      <button class="btn success call-action-btn" onclick="acceptCall()">✓ Accept Call</button>
-      <button class="btn danger call-action-btn" onclick="endCall()">✕ End Call</button>
-    </div>
-  </div>
-</div>
 
 <script src="app.js"></script>
 </body>
