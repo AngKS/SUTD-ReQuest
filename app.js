@@ -7,13 +7,6 @@ let isRecording = false;
 let audioChunks = [];
 let voiceMessages = [];
 let sosCountdownTimer = null;
-let audioCtx = null;
-
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new AudioContext({ sampleRate: 11025 });
-  return audioCtx;
-}
-
 // Load saved phone number
 const savedPhone = localStorage.getItem('sos_phone') || '';
 if (savedPhone) document.getElementById('emergency-number').value = savedPhone;
@@ -91,14 +84,7 @@ function onDisconnected() {
 
 function onData(event) {
   const raw = event.target.value;
-
-  // Handle binary audio frames first — skip UTF-8 decode for audio packets
-  if (isRecording) {
-    audioChunks.push(new Uint8Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength)));
-    return;
-  }
-
-  const text = new TextDecoder().decode(raw);
+  const text = new TextDecoder('utf-8', { fatal: false }).decode(raw);
 
   if (text === "REC_START") {
     isRecording = true;
@@ -112,6 +98,10 @@ function onData(event) {
     log("✅ Voice message received — press Play to listen", 'ok');
     storeVoiceMessage([...audioChunks]);
     audioChunks = [];
+
+  } else if (isRecording) {
+    // Binary audio data — store raw PCM bytes
+    audioChunks.push(new Uint8Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength)));
 
   } else if (text === "Request Sent") {
     log("⚠ Help request received!", 'alert');
@@ -212,15 +202,15 @@ function playVoiceMessage(id) {
   log(`Playing voice message from ${msg.time}`, 'event');
 }
 
-async function playAudio(chunks) {
-  const ctx = getAudioContext();
-  await ctx.resume(); // Unblock autoplay suspension
+function playAudio(chunks) {
   const totalLength = chunks.reduce((s, c) => s + c.length, 0);
   const combined = new Uint8Array(totalLength);
   let offset = 0;
   for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.length; }
+  const sampleRate = 11025;
+  const audioCtx = new AudioContext({ sampleRate });
   const numSamples = combined.length / 2;
-  const buf = ctx.createBuffer(1, numSamples, ctx.sampleRate);
+  const buf = audioCtx.createBuffer(1, numSamples, sampleRate);
   const ch = buf.getChannelData(0);
   for (let i = 0; i < numSamples; i++) {
     const lo = combined[i*2], hi = combined[i*2+1];
@@ -228,9 +218,9 @@ async function playAudio(chunks) {
     if (s > 32767) s -= 65536;
     ch[i] = s / 32768.0;
   }
-  const src = ctx.createBufferSource();
+  const src = audioCtx.createBufferSource();
   src.buffer = buf;
-  src.connect(ctx.destination);
+  src.connect(audioCtx.destination);
   src.start();
 }
 
