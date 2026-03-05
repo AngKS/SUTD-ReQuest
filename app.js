@@ -138,9 +138,11 @@ function triggerSOSCall() {
   // Immediately trigger the call
   if (phone) {
     log("📞 Calling " + phone, 'alert');
-    const a = document.createElement('a');
-    a.href = 'tel:' + phone;
-    a.click();
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = 'tel:' + phone;
+    document.body.appendChild(iframe);
+    setTimeout(() => iframe.remove(), 1000);
   } else {
     log("⚠ No emergency number set — add one in the phone config above", 'alert');
   }
