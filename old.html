@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>C3 Supermini — Helper Console</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --accent: #00e5ff;
+      --accent2: #ff4b4b;
+      --accent3: #69ff94;
+      --text: #e8e8e8;
+      --muted: #666;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-sans: 'IBM Plex Sans', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-sans); min-height: 100vh; padding: 24px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    header h1 { font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+    #status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 8px; transition: background 0.3s; }
+    #status-dot.connected { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+    #status-dot.connecting { background: #ffcc00; box-shadow: 0 0 8px #ffcc00; animation: pulse 1s infinite; }
+    #status-text { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes glow { 0%,100%{box-shadow:0 0 8px var(--accent2)} 50%{box-shadow:0 0 24px var(--accent2), 0 0 48px var(--accent2)} }
+    @keyframes sosPulse { 0%,100%{box-shadow:0 0 16px var(--accent2),0 0 48px var(--accent2)} 50%{box-shadow:0 0 48px var(--accent2),0 0 96px var(--accent2),0 0 4px #fff inset} }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .card h2 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--text); font-family: var(--font-mono); font-size: 12px; cursor: pointer; transition: all 0.15s; text-decoration: none; }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+    .btn.primary { border-color: var(--accent); color: var(--accent); }
+    .btn.primary:hover { background: var(--accent); color: #000; }
+    .btn.danger { border-color: var(--accent2); color: var(--accent2); }
+    .btn.danger:hover { background: var(--accent2); color: #fff; }
+    .btn.success { border-color: var(--accent3); color: var(--accent3); }
+    .btn.success:hover { background: var(--accent3); color: #000; }
+    .btn.call { border-color: var(--accent3); color: var(--accent3); font-size: 14px; padding: 12px 24px; }
+    .btn.call:hover { background: var(--accent3); color: #000; }
+    #conn-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #request-alert { display: none; background: #1a0a0a; border: 1px solid var(--accent2); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    #request-alert.visible { display: block; animation: fadeIn 0.3s ease, glow 1.5s infinite; }
+    #request-alert h2 { font-family: var(--font-mono); font-size: 13px; color: var(--accent2); margin-bottom: 12px; letter-spacing: 0.1em; }
+    #request-alert .alert-body { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    #request-alert p { font-size: 14px; color: var(--text); }
+    #request-time { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+    /* SOS Modal Overlay */
+    #sos-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+    #sos-modal.visible { display: flex; }
+    #sos-box { background: #1a0000; border: 2px solid var(--accent2); border-radius: 12px; padding: 36px 40px; max-width: 480px; width: 90%; text-align: center; animation: fadeIn 0.25s ease, sosPulse 1.5s infinite; }
+    #sos-box .sos-icon { font-size: 48px; margin-bottom: 16px; }
+    #sos-box h2 { font-family: var(--font-mono); font-size: 22px; color: var(--accent2); letter-spacing: 0.15em; margin-bottom: 8px; text-transform: uppercase; }
+    #sos-box p { color: #ccc; font-size: 14px; margin-bottom: 8px; line-height: 1.6; }
+    #sos-time { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 28px; display: block; }
+    #sos-phone-display { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+    #sos-phone-display span { color: var(--accent3); }
+    .sos-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+
+    /* Phone number settings */
+    #phone-card { margin-bottom: 16px; }
+    #phone-card .phone-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    #phone-card input { flex: 1; min-width: 180px; background: #080808; border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; color: var(--text); font-family: var(--font-mono); font-size: 13px; }
+    #phone-card input:focus { outline: none; border-color: var(--accent); }
+    #phone-card label { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 10px; }
+    #phone-saved { font-family: var(--font-mono); font-size: 11px; color: var(--accent3); margin-top: 8px; display: none; }
+
+    #voice-list { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; }
+    #voice-list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #0d0d0d; border: 1px solid var(--border); border-radius: 4px; font-family: var(--font-mono); font-size: 12px; animation: fadeIn 0.2s ease; }
+    #voice-list li .meta { color: var(--muted); font-size: 11px; }
+    .voice-empty { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+    #ping-card p { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+    #terminal { background: #080808; border: 1px solid var(--border); border-radius: 8px; padding: 16px; height: 180px; overflow-y: auto; font-family: var(--font-mono); font-size: 12px; line-height: 1.7; }
+    .log-entry { animation: fadeIn 0.15s ease; }
+    .log-entry.info { color: var(--muted); }
+    .log-entry.event { color: var(--accent); }
+    .log-entry.alert { color: var(--accent2); }
+    .log-entry.ok { color: var(--accent3); }
+    #rec-indicator { display: none; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--accent2); }
+    #rec-indicator.active { display: flex; }
+    #rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); animation: pulse 0.8s infinite; }
+    .send-row { display: flex; gap: 8px; margin-top: 16px; }
+    .send-row input { flex: 1; background: #080808; border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+    .send-row input:focus { outline: none; border-color: var(--accent); }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>C3 Supermini — Helper Console</h1>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span id="status-dot"></span>
+    <span id="status-text">Disconnected</span>
+  </div>
+</header>
+
+<!-- Phone Number Config -->
+<div class="card" id="phone-card" style="margin-bottom:16px">
+  <label>Emergency Call Number</label>
+  <div class="phone-row">
+    <input type="tel" id="emergency-number" placeholder="+1234567890" />
+    <button class="btn primary" onclick="savePhone()">Save</button>
+  </div>
+  <div id="phone-saved">✓ Number saved</div>
+</div>
+
+<!-- Connect Card -->
+<div class="card" style="margin-bottom:16px">
+  <div id="conn-card">
+    <button class="btn primary" id="connectBtn" onclick="connect()">Connect</button>
+    <button class="btn danger" id="disconnectBtn" onclick="disconnectDevice()" disabled>Disconnect</button>
+    <div id="rec-indicator"><div id="rec-dot"></div> RECORDING</div>
+  </div>
+</div>
+
+<!-- Regular help request alert -->
+<div id="request-alert">
+  <h2>⚠ HELP REQUEST RECEIVED</h2>
+  <div class="alert-body">
+    <div>
+      <p id="request-msg">The user is requesting assistance.</p>
+      <span id="request-time"></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn success" onclick="acceptRequest()">✓ Accept &amp; Notify</button>
+      <button class="btn" onclick="dismissRequest()">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Voice Messages</h2>
+    <ul id="voice-list"><li class="voice-empty" id="voice-empty">No voice messages yet</li></ul>
+  </div>
+  <div class="card" id="ping-card">
+    <h2>Proximity Ping</h2>
+    <p>Send a ping to let the user know you are nearby (~15m range).</p>
+    <button class="btn primary" id="pingBtn" onclick="sendPing()" disabled>Send Proximity Ping</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Console Log</h2>
+  <div id="terminal"></div>
+  <div class="send-row">
+    <input type="text" id="sendText" placeholder="Send raw message to ESP32..." />
+    <button class="btn" id="sendBtn" onclick="sendData()" disabled>Send</button>
+  </div>
+</div>
+
+<!-- SOS Modal -->
+<div id="sos-modal">
+  <div id="sos-box">
+    <div class="sos-icon">🚨</div>
+    <h2>Emergency SOS</h2>
+    <p>User has triggered an emergency alert.</p>
+    <span id="sos-time"></span>
+    <div id="sos-phone-display">Calling: <span id="sos-phone-num">—</span></div>
+    <div class="sos-actions">
+      <a id="call-now-btn" class="btn call" href="#">📞 Call Again</a>
+      <button class="btn danger" onclick="dismissSOS()">✕ Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  const TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+  const RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+  let device, server, txChar, rxChar;
+  let isRecording = false;
+  let audioChunks = [];
+  let voiceMessages = [];
+  let sosCountdownTimer = null;
+
+  // Load saved phone number
+  const savedPhone = localStorage.getItem('sos_phone') || '';
+  if (savedPhone) document.getElementById('emergency-number').value = savedPhone;
+
+  function savePhone() {
+    const num = document.getElementById('emergency-number').value.trim();
+    if (!num) return;
+    localStorage.setItem('sos_phone', num);
+    const saved = document.getElementById('phone-saved');
+    saved.style.display = 'block';
+    setTimeout(() => saved.style.display = 'none', 2000);
+  }
+
+  function getPhone() {
+    return document.getElementById('emergency-number').value.trim() || localStorage.getItem('sos_phone') || '';
+  }
+
+  async function connect() {
+    try {
+      setStatus('connecting');
+      if (!device) {
+        log("Scanning for C3_Supermini_BLE...", 'info');
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: 'C3_Supermini_BLE' }],
+          optionalServices: [SERVICE_UUID]
+        });
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+      }
+      log("Connecting to GATT server...", 'info');
+      server = await device.gatt.connect();
+      await setupCharacteristics();
+    } catch (e) {
+      log("Error: " + e, 'alert');
+      setStatus('disconnected');
+    }
+  }
+
+  async function setupCharacteristics() {
+    await new Promise(r => setTimeout(r, 500));
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    txChar = await service.getCharacteristic(TX_UUID);
+    rxChar  = await service.getCharacteristic(RX_UUID);
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged', onData);
+    setStatus('connected');
+    log("Connected to C3_Supermini_BLE", 'ok');
+    document.getElementById('disconnectBtn').disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('pingBtn').disabled = false;
+  }
+
+  let manualDisconnect = false;
+
+  async function disconnectDevice() {
+    manualDisconnect = true;
+    if (device && device.gatt.connected) device.gatt.disconnect();
+  }
+
+  function onDisconnected() {
+    setStatus('disconnected');
+    log("Device disconnected", 'alert');
+    ['disconnectBtn','sendBtn','pingBtn'].forEach(id => document.getElementById(id).disabled = true);
+    document.getElementById('rec-indicator').classList.remove('active');
+    if (!manualDisconnect) {
+      setTimeout(() => {
+        if (device) {
+          log("Attempting reconnect...", 'info');
+          device.gatt.connect().then(s => { server = s; return setupCharacteristics(); }).catch(() => {});
+        }
+      }, 3000);
+    }
+    manualDisconnect = false;
+  }
+
+  function onData(event) {
+    const raw = event.target.value;
+    const text = new TextDecoder().decode(raw);
+
+    if (text === "REC_START") {
+      isRecording = true;
+      audioChunks = [];
+      document.getElementById('rec-indicator').classList.add('active');
+      log("🎙 Recording started", 'event');
+
+    } else if (text === "REC_END") {
+      isRecording = false;
+      document.getElementById('rec-indicator').classList.remove('active');
+      log("✅ Voice message received — press Play to listen", 'ok');
+      storeVoiceMessage([...audioChunks]);
+      audioChunks = [];
+
+    } else if (text === "Request Sent") {
+      log("⚠ Help request received!", 'alert');
+      showRequestAlert(false);
+
+    } else if (text === "SOS_ALERT") {
+      log("🚨 EMERGENCY — Long press triggered!", 'alert');
+      showRequestAlert(true);
+      triggerSOSCall();
+
+    } else if (isRecording) {
+      audioChunks.push(new Uint8Array(raw.buffer));
+
+    } else {
+      log("ESP32: " + text, 'info');
+    }
+  }
+
+  function triggerSOSCall() {
+    const phone = getPhone();
+    const modal = document.getElementById('sos-modal');
+    document.getElementById('sos-time').textContent = new Date().toLocaleTimeString();
+    document.getElementById('sos-phone-num').textContent = phone || 'No number set';
+    document.getElementById('countdown-num').textContent = '5';
+
+    const callBtn = document.getElementById('call-now-btn');
+    if (phone) {
+      callBtn.href = 'tel:' + phone;
+      callBtn.style.pointerEvents = 'auto';
+      callBtn.style.opacity = '1';
+    } else {
+      callBtn.href = '#';
+      callBtn.style.opacity = '0.4';
+      callBtn.style.pointerEvents = 'none';
+      log("⚠ No emergency number set — add one in the phone config above", 'alert');
+    }
+
+    modal.classList.add('visible');
+
+    // Auto-call countdown
+    if (sosCountdownTimer) clearInterval(sosCountdownTimer);
+    let count = 5;
+    sosCountdownTimer = setInterval(() => {
+      count--;
+      document.getElementById('countdown-num').textContent = count;
+      if (count <= 0) {
+        clearInterval(sosCountdownTimer);
+        sosCountdownTimer = null;
+        document.getElementById('sos-countdown').textContent = 'Opening dialer...';
+        if (phone) {
+          log("📞 Auto-dialing " + phone, 'alert');
+          window.location.href = 'tel:' + phone;
+        } else {
+          document.getElementById('sos-countdown').textContent = 'No number configured.';
+        }
+      }
+    }, 1000);
+  }
+
+  function dismissSOS() {
+    if (sosCountdownTimer) { clearInterval(sosCountdownTimer); sosCountdownTimer = null; }
+    document.getElementById('sos-modal').classList.remove('visible');
+    log("SOS modal dismissed", 'info');
+  }
+
+  function showRequestAlert(emergency) {
+    document.getElementById('request-msg').textContent = emergency
+      ? '🚨 EMERGENCY — User triggered emergency mode!'
+      : 'The user is requesting assistance.';
+    document.getElementById('request-time').textContent = new Date().toLocaleTimeString();
+    document.getElementById('request-alert').classList.add('visible');
+  }
+
+  async function acceptRequest() {
+    if (!rxChar) return;
+    await rxChar.writeValue(new TextEncoder().encode("Accepted"));
+    log("Accepted — notification sent to device", 'ok');
+    dismissRequest();
+  }
+
+  function dismissRequest() {
+    document.getElementById('request-alert').classList.remove('visible');
+  }
+
+  function storeVoiceMessage(chunks) {
+    const id = Date.now();
+    const time = new Date().toLocaleTimeString();
+    voiceMessages.push({ id, chunks, time });
+    document.getElementById('voice-empty')?.remove();
+    const li = document.createElement('li');
+    li.id = 'vm-' + id;
+    li.innerHTML = `<span>🎤 Message <span class="meta">${time}</span></span><button class="btn" onclick="playVoiceMessage(${id})">▶ Play</button>`;
+    document.getElementById('voice-list').appendChild(li);
+  }
+
+  function playVoiceMessage(id) {
+    const msg = voiceMessages.find(m => m.id === id);
+    if (!msg) return;
+    playAudio(msg.chunks);
+    log(`Playing voice message from ${msg.time}`, 'event');
+  }
+
+  function playAudio(chunks) {
+    const totalLength = chunks.reduce((s, c) => s + c.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.length; }
+    const sampleRate = 11025;
+    const audioCtx = new AudioContext({ sampleRate });
+    const numSamples = combined.length / 2;
+    const buf = audioCtx.createBuffer(1, numSamples, sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < numSamples; i++) {
+      const lo = combined[i*2], hi = combined[i*2+1];
+      let s = (hi << 8) | lo;
+      if (s > 32767) s -= 65536;
+      ch[i] = s / 32768.0;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start();
+  }
+
+  async function sendPing() {
+    if (!rxChar) return;
+    await rxChar.writeValue(new TextEncoder().encode("Nearby"));
+    log("Proximity ping sent to device", 'ok');
+  }
+
+  async function sendData() {
+    const val = document.getElementById("sendText").value.trim();
+    if (!rxChar || !val) return;
+    await rxChar.writeValue(new TextEncoder().encode(val));
+    log("Sent: " + val, 'info');
+    document.getElementById("sendText").value = "";
+  }
+
+  document.getElementById("sendText").addEventListener("keydown", e => { if (e.key === "Enter") sendData(); });
+
+  function setStatus(state) {
+    document.getElementById('status-dot').className = state;
+    document.getElementById('status-text').textContent = { connected:'Connected', connecting:'Connecting...', disconnected:'Disconnected' }[state];
+  }
+
+  function log(msg, type='info') {
+    const term = document.getElementById('terminal');
+    const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + type;
+    div.textContent = `[${ts}] ${msg}`;
+    term.appendChild(div);
+    term.scrollTop = term.scrollHeight;
+  }
+</script>
+</body>
+</html>
