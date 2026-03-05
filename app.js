@@ -35,11 +35,12 @@ async function connect() {
   try {
     setStatus('connecting');
     if (!device) {
-      log("Scanning for C3_Supermini_BLE...", 'info');
-      device = await navigator.bluetooth.requestDevice({
-        filters: [{ name: 'C3_Supermini_BLE' }],
-        optionalServices: [SERVICE_UUID]
-      });
+      const scanAll = document.getElementById('scanAllToggle').checked;
+      const requestOptions = scanAll
+        ? { acceptAllDevices: true, optionalServices: [SERVICE_UUID] }
+        : { filters: [{ name: 'C3_Supermini_BLE' }], optionalServices: [SERVICE_UUID] };
+      log(scanAll ? "Scanning all nearby BLE devices..." : "Scanning for C3_Supermini_BLE...", 'info');
+      device = await navigator.bluetooth.requestDevice(requestOptions);
       device.addEventListener('gattserverdisconnected', onDisconnected);
     }
     log("Connecting to GATT server...", 'info');
